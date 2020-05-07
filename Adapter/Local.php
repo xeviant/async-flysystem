@@ -2,10 +2,6 @@
 
 namespace Xeviant\AsyncFlysystem\Adapter;
 
-use Illuminate\Filesystem\Async\DecoratedAsyncAdapter;
-use Illuminate\Filesystem\Async\DecoratedAsyncFilesystem;
-use Illuminate\Filesystem\Async\ExtendedFileInterface;
-use Illuminate\Filesystem\Filesystem;
 use League\Flysystem\Config;
 use League\Flysystem\NotSupportedException;
 use League\Flysystem\UnreadableFileException;
@@ -17,6 +13,11 @@ use React\Filesystem\Node\FileInterface;
 use React\Filesystem\Node\LinkInterface;
 use React\Filesystem\Node\NodeInterface;
 use React\Promise;
+use React\Promise\PromiseInterface;
+use Xeviant\ReactFilesystem\Adapter\DecoratedAsyncAdapter;
+use Xeviant\ReactFilesystem\DecoratedAsyncFilesystem;
+use Xeviant\ReactFilesystem\Node\ExtendedFileInterface;
+use Xeviant\ReactFilesystem\Wrapper;
 
 class Local extends AbstractAdapter
 {
@@ -57,10 +58,9 @@ class Local extends AbstractAdapter
 
     private LoopInterface $loop;
     
-    private Filesystem $filesystem;
+    private Wrapper $filesystem;
 
-
-    private Promise\PromiseInterface $readyPromise;
+    private PromiseInterface $readyPromise;
 
     /**
      * Constructor.
@@ -78,7 +78,7 @@ class Local extends AbstractAdapter
         $this->loop = $loop;
         $root = is_link($root) ? realpath($root) : $root;
 
-        $this->filesystem = new Filesystem(
+        $this->filesystem = new Wrapper(
             DecoratedAsyncFilesystem::createFromExtendedAdapter(new DecoratedAsyncAdapter($this->loop))
         );
 
@@ -106,7 +106,7 @@ class Local extends AbstractAdapter
      *
      * @param string $root root directory path
      *
-     * @return Promise\PromiseInterface<bool>
+     * @return PromiseInterface<bool>
      *
      */
     protected function ensureDirectory($root)
@@ -194,49 +194,6 @@ class Local extends AbstractAdapter
 
             return $result;
         })->otherwise(fn() => false);
-
-        /*
-        $mode = (FILE_APPEND & $this->writeFlags) === FILE_APPEND ? 'cw' : 'cwt';
-        $location = null;
-
-        return $this->readyPromise->then(function () use ($path, &$location) { 
-            $location = $this->applyPathPrefix($path);
-            return $this->ensureDirectoryAsync(dirname($location));
-        })->then(function () use (&$location, $resource, $mode) {
-            $readStream = new \React\Filesystem\Stream\ReadableStream(null, $resource, $this->filesystem->getAsyncFilesystem()->getAdapter());
-            $readStream->pause();
-            // $readStream->setSize(fstat($resouce)['size']);
-            return $this->filesystem->getAsyncFilesystem()->file($location)->open($mode)->then(function ($writeStream) use ($readStream) {
-                return \React\Promise\all([
-                    'read' => $readStream,
-                    'write' => $writeStream,
-                ]);
-            });
-        })->then(function (array $streams)  {
-            $deferred = new \React\Promise\Deferred();
-            $streams['read']->pipe($streams['write']);
-            $streams['read']->on('close', function () use ($streams, $deferred) {
-                $streams['write']->close();
-                $deferred->resolve();
-            });
-            $streams['read']->resume();
-            return $deferred->promise();
-        })->then(function () use ($path, $config) {
-            $type = 'file';
-            $result = compact('type', 'path');
-
-            if ($visibility = $config->get('visibility')) {
-                $result['visibility'] = $visibility;
-                return $this->setVisibilityAsync($path, $visibility)->then(function () use ($result) {
-                    return $result;
-                });
-            }
-
-            return $result;
-        }, function () {
-            return false;
-        });
-        */
     }
 
     /**

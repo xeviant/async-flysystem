@@ -2,8 +2,6 @@
 
 namespace Xeviant\AsyncFlysystem\Tests\Adapter;
 
-use Illuminate\Filesystem\Async\ExtendedFileInterface;
-use Illuminate\Filesystem\Flysystem\Adapter\Local;
 use League\Flysystem\Config;
 use League\Flysystem\Exception;
 use League\Flysystem\NotSupportedException;
@@ -11,7 +9,9 @@ use Prophecy\PhpUnit\ProphecyTrait;
 use React\EventLoop\Factory;
 use React\EventLoop\LoopInterface;
 use ReflectionClass;
+use Xeviant\AsyncFlysystem\Adapter\Local;
 use Xeviant\AsyncFlysystem\Tests\TestCase;
+use Xeviant\ReactFilesystem\Node\ExtendedFileInterface;
 use function Clue\React\Block\await;
 use function React\Promise\resolve;
 
@@ -583,12 +583,10 @@ class LocalTest extends TestCase
         unlink($link);
     }
 
-    /**
-     * @expectedException \League\Flysystem\NotSupportedException
-     */
     public function testLinkCausedUnsupportedException()
     {
         $this->expectException(NotSupportedException::class);
+
         $original = $this->root . 'original.txt';
         $link = $this->root . 'link.txt';
         file_put_contents($original, 'something');
@@ -622,9 +620,13 @@ class LocalTest extends TestCase
 
         $this->assertTrue(is_link($link));
 
-        $this->await(
-            $adapter->deleteDir('subdir')
-        );
+        try {
+            $this->await(
+                $adapter->deleteDir('subdir')
+            );
+        } catch (\Throwable $e) {
+            var_dump($e);
+        }
 
         clearstatcache();
 
