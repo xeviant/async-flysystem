@@ -1,0 +1,36 @@
+{
+    "name": "xeviant/async-flysystem",
+    "description": "Asynchronous Flysystem implementation",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Olatunbosun Egberinde",
+            "email": "bosunski@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^7.3",
+        "league/flysystem": "^1.0",
+        "react/filesystem": "dev-master"
+    },
+    "autoload": {
+        "psr-4": {
+            "Xeviant\\AsyncFlysystem\\": ""
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Xeviant\\AsyncFlysystem\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "require-dev": {
+        "clue/block-react": "^1.3",
+        "phpspec/prophecy-phpunit": "^2.0",
+        "phpunit/phpunit": "^9.1"
+    }
+}
