@@ -5,8 +5,9 @@ namespace Xeviant\AsyncFlysystem\Adapter;
 use League\Flysystem\AdapterInterface;
 use League\Flysystem\Config;
 use React\Promise\PromiseInterface;
+use Xeviant\AsyncFlysystem\AsyncReadInterface;
 
-interface AsyncAdapterInterface extends AdapterInterface
+interface AsyncAdapterInterface extends AsyncReadInterface
 {
     /**
      * Write a new file.
