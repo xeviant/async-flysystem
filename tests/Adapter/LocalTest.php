@@ -2,16 +2,24 @@
 
 namespace Xeviant\AsyncFlysystem\Tests\Adapter;
 
+use Evenement\EventEmitter;
 use League\Flysystem\Config;
 use League\Flysystem\Exception;
 use League\Flysystem\NotSupportedException;
 use Prophecy\PhpUnit\ProphecyTrait;
 use React\EventLoop\Factory;
 use React\EventLoop\LoopInterface;
+use React\Filesystem\Filesystem;
+use React\Filesystem\Stream\ReadableStream;
+use React\Stream\ReadableResourceStream;
+use React\Stream\ReadableStreamInterface;
+use React\Stream\Util;
+use React\Stream\WritableStreamInterface;
 use ReflectionClass;
 use Xeviant\AsyncFlysystem\Adapter\Local;
 use Xeviant\AsyncFlysystem\Tests\TestCase;
 use Xeviant\ReactFilesystem\Node\ExtendedFileInterface;
+use Xeviant\ReactFilesystem\Wrapper;
 use function Clue\React\Block\await;
 use function React\Promise\resolve;
 
@@ -148,23 +156,28 @@ class LocalTest extends TestCase
         $result = $this->await($adapter->readStream('file.txt'));
         $this->assertIsArray($result);
         $this->assertArrayHasKey('stream', $result);
-        $this->assertIsResource($result['stream']);
-        fclose($result['stream']);
+        $this->assertInstanceOf(ReadableStreamInterface::class, $result['stream']);
+        $result['stream']->close();
         $adapter->delete('file.txt');
     }
 
     public function testWriteStream()
     {
-        $adapter = $this->adapter;
-        $temp = tmpfile();
-        fwrite($temp, 'dummy');
-        rewind($temp);
-        $this->await($adapter->writeStream('dir/file.txt', $temp, new Config(['visibility' => 'public'])));
-        fclose($temp);
-        $this->assertTrue($this->await($adapter->has('dir/file.txt')));
-        $result = $this->await($adapter->read('dir/file.txt'));
+        $fpath = dirname($this->root) . '/tmp.txt';
+        file_put_contents($fpath, 'dummy');
+
+        $fs = Filesystem::create($this->loop);
+
+        $this->await(
+            $fs->file($fpath)->open('r')->then(function (ReadableStream $readableStream) {
+                return $this->adapter->writeStream('dir/file.txt', $readableStream, new Config(['visibility' => 'public']));
+            })
+        );
+
+        $this->assertTrue($this->await($this->adapter->has('dir/file.txt')));
+        $result = $this->await($this->adapter->read('dir/file.txt'));
         $this->assertEquals('dummy', $result['contents']);
-        $adapter->deleteDir('dir');
+        $this->await($this->adapter->deleteDir('dir'));
     }
 
     public function testListingNonexistingDirectory()

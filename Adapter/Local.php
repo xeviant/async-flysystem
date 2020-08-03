@@ -12,8 +12,11 @@ use React\Filesystem\Node\DirectoryInterface;
 use React\Filesystem\Node\FileInterface;
 use React\Filesystem\Node\LinkInterface;
 use React\Filesystem\Node\NodeInterface;
+use React\Filesystem\Stream\ReadableStream;
+use React\Filesystem\Stream\WritableStream;
 use React\Promise;
 use React\Promise\PromiseInterface;
+use React\Stream\ReadableStreamInterface;
 use Xeviant\ReactFilesystem\Adapter\DecoratedAsyncAdapter;
 use Xeviant\ReactFilesystem\DecoratedAsyncFilesystem;
 use Xeviant\ReactFilesystem\Node\ExtendedFileInterface;
@@ -120,13 +123,8 @@ class Local extends AbstractAdapter
     public function has($path)
     {
         return $this->readyPromise->then(function () use ($path) {
-            $location = $this->applyPathPrefix($path);
-            return $this->filesystem->getAsyncFilesystem()->file($location)->exists();
-        })->then(function () {
-            return true;
-        }, function () {
-            return false;
-        });
+            return $this->filesystem->getAsyncFilesystem()->file($this->applyPathPrefix($path))->exists();
+        })->then(fn () => true)->otherwise(fn () => false);
     }
 
     /**
@@ -169,31 +167,53 @@ class Local extends AbstractAdapter
      */
     public function writeStream($path, $resource, Config $config)
     {
-        // TODO: not possible to simply read from a strem with react/filesystem by now
+        if (! $resource instanceof ReadableStreamInterface) {
+            return Promise\reject("Resource must implement a ReadableStreamInterface");
+        }
+
+        if (! $resource->isReadable()) {
+            return Promise\reject(new \Exception("Source stream is not't readable."));
+        }
+
         $location = null;
 
-        return $this->readyPromise->then(function () use ($path, &$location) {
+        $deferred = new Promise\Deferred;
+
+        $this->readyPromise->then(function () use ($resource, $path, &$location) {
             $location = $this->applyPathPrefix($path);
             return $this->ensureDirectory(dirname($location));
-        })->then(function () use ($path, $resource, $config, &$location) {
-            $stream = fopen($location, 'w+b');
+        })->then(function () use ($deferred, $path, $resource, $config, &$location) {
+            return $this->filesystem->getAsyncFilesystem()->file($location)->open('w+b')
+                ->then(function (WritableStream $writableStream) use ($deferred, $resource) {
+                    if ($writableStream->isWritable()) {
+                        $resource->pipe($writableStream);
+                    } else {
+                        return $deferred->reject(new \Exception("Destination is not writable."));
+                    }
 
-            if ( ! $stream || stream_copy_to_stream($resource, $stream) === false || ! fclose($stream)) {
-                return false;
-            }
+                    $resource->on('close', fn () => $writableStream->close());
 
+                    $resource->on('error', function ($error) use ($deferred, $writableStream) {
+                        $writableStream->close();
+                        $deferred->reject($error);
+                    });
+
+                    $writableStream->on('error', fn ($error) => $deferred->reject($error));
+                    $writableStream->on('close', fn ($error) => $deferred->resolve());
+                });
+        });
+
+        return $deferred->promise()->then(function () use ($path, $config) {
             $type = 'file';
             $result = compact('type', 'path');
 
             if ($visibility = $config->get('visibility')) {
                 $result['visibility'] = $visibility;
-                return $this->setVisibility($path, $visibility)->then(function () use ($result) {
-                    return $result;
-                });
+                return $this->setVisibility($path, $visibility)->then(fn () => $result);
             }
 
             return $result;
-        })->otherwise(fn() => false);
+        });
     }
 
     /**
@@ -201,18 +221,11 @@ class Local extends AbstractAdapter
      */
     public function readStream($path)
     {
-        // Not sure how to do this, doesn't seem possible to return a resource async
         return $this->readyPromise->then(function () use ($path) {
             $location = $this->applyPathPrefix($path);
-            return $this->filesystem->getAsyncFilesystem()->file($location)->getContents();
-        })->then(function ($contents) {
-            // Note 'w' flag doesn't matter
-            $handle = fopen('php://memory', 'rwb');
-            fwrite($handle, $contents);
-            fseek($handle, 0);
-            return $handle;
-        })->then(function ($handle) use ($path) {
-            return ['type' => 'file', 'path' => $path, 'stream' => $handle];
+            return $this->filesystem->getAsyncFilesystem()->file($location)->open('rb');
+        })->then(function ($stream) use ($path) {
+            return ['type' => 'file', 'path' => $path, 'stream' => $stream];
         });
     }
 
@@ -266,9 +279,7 @@ class Local extends AbstractAdapter
             return $this->filesystem->getAsyncFilesystem()->file($location)->getContents();
         })->then(function ($contents) use ($path) {
             return ['type' => 'file', 'path' => $path, 'contents' => $contents];
-        }, function () {
-            return false;
-        });
+        })->otherwise(fn () => false);
     }
 
     /**
@@ -288,9 +299,7 @@ class Local extends AbstractAdapter
             return $this->filesystem->getAsyncFilesystem()->file($location)->rename($destination);
         })->then(function () {
             return true;
-        }, function () {
-            return false;
-        });
+        })->otherwise(fn () => false);
     }
 
     /**
@@ -309,9 +318,7 @@ class Local extends AbstractAdapter
             return $this->filesystem->getAsyncFilesystem()->file($location)->copy($this->filesystem->getAsyncFilesystem()->file($destination));
         })->then(function () {
             return true;
-        }, function ($e) {
-            return false;
-        });
+        })->otherwise(fn () => false);
     }
 
     /**
@@ -324,9 +331,7 @@ class Local extends AbstractAdapter
             return $this->filesystem->getAsyncFilesystem()->file($location)->remove();
         })->then(function () {
             return true;
-        }, function () {
-            return false;
-        });
+        })->otherwise(fn () => false);
     }
 
     /**
@@ -657,5 +662,10 @@ class Local extends AbstractAdapter
                 );
             }
         });
+    }
+
+    public function getAdapter()
+    {
+        return $this->filesystem->getAsyncFilesystem();
     }
 }

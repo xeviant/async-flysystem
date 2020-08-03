@@ -4,7 +4,9 @@ namespace Xeviant\AsyncFlysystem\Adapter;
 
 use League\Flysystem\AdapterInterface;
 use League\Flysystem\Config;
+use React\Filesystem\Stream\ReadableStream;
 use React\Promise\PromiseInterface;
+use React\Stream\ReadableStreamInterface;
 use Xeviant\AsyncFlysystem\AsyncReadInterface;
 
 interface AsyncAdapterInterface extends AsyncReadInterface
@@ -29,7 +31,7 @@ interface AsyncAdapterInterface extends AsyncReadInterface
      *
      * @return PromiseInterface<array|false false on failure file meta data on success>
      */
-    public function writeStream($path, $resource, Config $config);
+    public function writeStream($path, ReadableStreamInterface $resource, Config $config);
 
     /**
      * Update a file.

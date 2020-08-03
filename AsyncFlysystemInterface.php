@@ -4,7 +4,6 @@
 namespace Xeviant\AsyncFlysystem;
 
 
-use Illuminate\Filesystem\Flysystem\Adapter\AsyncAdapterInterface;
 use League\Flysystem\FileExistsException;
 use League\Flysystem\FileNotFoundException;
 use League\Flysystem\FilesystemInterface;
@@ -12,6 +11,7 @@ use League\Flysystem\Handler;
 use League\Flysystem\PluginInterface;
 use League\Flysystem\RootViolationException;
 use React\Promise\PromiseInterface;
+use Xeviant\AsyncFlysystem\Adapter\AsyncAdapterInterface;
 
 interface AsyncFlysystemInterface extends FilesystemInterface
 {

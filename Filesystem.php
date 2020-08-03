@@ -2,7 +2,6 @@
 
 namespace Xeviant\AsyncFlysystem;
 
-use Illuminate\Filesystem\Flysystem\Adapter\AsyncAdapterInterface;
 use InvalidArgumentException;
 use League\Flysystem\Adapter\CanOverwriteFiles;
 use League\Flysystem\Config;
@@ -16,6 +15,7 @@ use React\Filesystem\Node\Directory;
 use React\Filesystem\Node\File;
 use React\Promise;
 use React\Promise\PromiseInterface;
+use Xeviant\AsyncFlysystem\Adapter\AsyncAdapterInterface;
 
 
 class Filesystem extends FilesystemSync implements AsyncFlysystemInterface
@@ -85,15 +85,15 @@ class Filesystem extends FilesystemSync implements AsyncFlysystemInterface
             return $this->fallbackToSync(__FUNCTION__, func_get_args());
         }
 
-        if (!is_resource($resource)) {
-            return Promise\reject(new InvalidArgumentException(__METHOD__ . ' expects argument #2 to be a valid resource.'));
-        }
+//        if (!is_resource($resource)) {
+//            return Promise\reject(new InvalidArgumentException(__METHOD__ . ' expects argument #2 to be a valid resource.'));
+//        }
 
         $path = Util::normalizePath($path);
         return $this->assertAbsent($path)->then(function () use ($path, $resource, $config) {
             $config = $this->prepareConfig($config);
 
-            Util::rewindStream($resource);
+//            Util::rewindStream($resource);
 
             return $this->getAdapter()->writeStream($path, $resource, $config);
         })->then(function ($result) {
