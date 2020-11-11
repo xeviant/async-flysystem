@@ -32,5 +32,11 @@
         "clue/block-react": "^1.3",
         "phpspec/prophecy-phpunit": "^2.0",
         "phpunit/phpunit": "^9.1"
-    }
+    },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/xeviant/react-filesystem.git"
+        }
+    ]
 }
